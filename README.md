@@ -55,6 +55,42 @@ Two details that decide whether retrieval is any good:
   embedded on its own. Short follow-ups carry the previous question into the
   *search* only.
 
+## Off the main thread
+
+Bringing a 0.5B model up costs about **five seconds of solid arithmetic**, and
+on the main thread that is five seconds in which nothing responds — no menu
+opens, no window drags, no key registers. The failure that produces is worse
+than the delay: the interface looks dead, so the person presses again, and both
+presses arrive at once when it thaws.
+
+So run it in a worker. Same interfaces, same behaviour, a page that still
+answers:
+
+```ts
+// model.worker.ts — the whole file
+import "@thatcatdev/browser-ai/worker";
+```
+
+```ts
+import { workerChat, workerEmbedder, CHAT_MODEL } from "@thatcatdev/browser-ai";
+
+const worker = new Worker(new URL("./model.worker.ts", import.meta.url), {
+  type: "module"
+});
+
+const engine = workerChat(worker, CHAT_MODEL, "auto");   // implements ChatEngine
+const model  = workerEmbedder(worker);                    // implements Embedder
+```
+
+The `Worker` is constructed by the application rather than by this package,
+because every bundler has its own idea of how a worker URL should be written and
+a library that guesses wrong breaks the build rather than degrading. One small
+file, and no surprises.
+
+One worker can serve both. Aborting a generation is a message, not a teardown:
+the window that asked has gone, but the thread keeps the model, so the next
+question does not pay for it again.
+
 ## Chat
 
 ```ts

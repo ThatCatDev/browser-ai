@@ -54,3 +54,6 @@ export {
 
 export { ground, type GroundOptions } from "./prompt";
 export { limit, type Limit } from "./limits";
+
+export { workerChat, workerEmbedder } from "./worker/client";
+export type { Request as WorkerRequest, Response as WorkerResponse } from "./worker/protocol";

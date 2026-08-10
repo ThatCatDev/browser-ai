@@ -318,4 +318,78 @@ type Limit =
  */
 declare function limit(question: string): Limit | undefined;
 
-export { CHAT_MODEL, CHAT_MODELS, type ChatEngine, type ChatModel, type ChatOptions, type Device, type DevicePreference, type Document, EMBEDDING_MODEL, type Embedder, type GroundOptions, type IndexOptions, type Limit, type Match, type Message, type Progress, VectorIndex, type VectorStore, bestDevice, chatEngine, contextual, embedder, forgetDevice, gpuAvailable, ground, limit, resolveDevice, setChatEngine, setEmbedder, similarity };
+/**
+ * A chat engine that runs somewhere else.
+ *
+ * The application makes the worker, because only it knows how its bundler
+ * writes one:
+ *
+ *   // model.worker.ts — the whole file
+ *   import "@thatcatdev/browser-ai/worker";
+ *
+ *   const worker = new Worker(new URL("./model.worker.ts", import.meta.url), {
+ *     type: "module"
+ *   });
+ *   const engine = workerChat(worker, CHAT_MODEL, "auto");
+ */
+declare function workerChat(worker: Worker, model: string, preference?: DevicePreference, options?: ChatOptions): ChatEngine;
+/** An embedder that runs somewhere else. One worker can serve both. */
+declare function workerEmbedder(worker: Worker, model?: string): Embedder;
+
+/**
+ * What the two sides say to each other.
+ *
+ * Deliberately small and explicit: a worker boundary is the one place in a
+ * library where a shape mismatch turns into silence rather than a type error,
+ * so every message is one of these and every reply carries the id it answers.
+ */
+type Request = {
+    id: number;
+    kind: "load-chat";
+    model: string;
+    device: DevicePreference;
+    options?: ChatOptions;
+} | {
+    id: number;
+    kind: "generate";
+    messages: Message[];
+} | {
+    id: number;
+    kind: "load-embed";
+    model?: string;
+} | {
+    id: number;
+    kind: "embed";
+    texts: string[];
+} | {
+    id: number;
+    kind: "abort";
+};
+type Response = 
+/** A download, as a fraction. Sent many times against one request. */
+{
+    id: number;
+    kind: "progress";
+    fraction: number;
+}
+/** A piece of an answer, as it is generated. */
+ | {
+    id: number;
+    kind: "token";
+    text: string;
+}
+/** The request is finished, with whatever it produced. */
+ | {
+    id: number;
+    kind: "done";
+    text?: string;
+    vectors?: number[][];
+    device?: Device;
+    fellBack?: boolean;
+} | {
+    id: number;
+    kind: "error";
+    message: string;
+};
+
+export { CHAT_MODEL, CHAT_MODELS, type ChatEngine, type ChatModel, type ChatOptions, type Device, type DevicePreference, type Document, EMBEDDING_MODEL, type Embedder, type GroundOptions, type IndexOptions, type Limit, type Match, type Message, type Progress, VectorIndex, type VectorStore, type Request as WorkerRequest, type Response as WorkerResponse, bestDevice, chatEngine, contextual, embedder, forgetDevice, gpuAvailable, ground, limit, resolveDevice, setChatEngine, setEmbedder, similarity, workerChat, workerEmbedder };

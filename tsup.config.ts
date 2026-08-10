@@ -10,7 +10,7 @@ import { defineConfig } from "tsup";
  * weights and the library off the critical path of whatever loads this.
  */
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: { index: "src/index.ts", worker: "src/worker/worker.ts" },
   format: ["esm"],
   dts: true,
   clean: true,

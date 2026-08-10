@@ -1,54 +1,11 @@
-// src/device.ts
-var adapter;
-function gpuAvailable() {
-  if (!adapter) {
-    adapter = (async () => {
-      const gpu = navigator.gpu;
-      if (typeof gpu?.requestAdapter !== "function") return false;
-      try {
-        return !!await gpu.requestAdapter();
-      } catch {
-        return false;
-      }
-    })();
-  }
-  return adapter;
-}
-function forgetDevice() {
-  adapter = void 0;
-}
-function bestDevice() {
-  return navigator.gpu ? "webgpu" : "wasm";
-}
-async function resolveDevice(preference) {
-  if (preference === "wasm") return { device: "wasm", fellBack: false };
-  if (await gpuAvailable()) return { device: "webgpu", fellBack: false };
-  return { device: "wasm", fellBack: preference === "webgpu" };
-}
-var Downloads = class {
-  constructor() {
-    this.files = /* @__PURE__ */ new Map();
-  }
-  record(file, at, of) {
-    if (!of) return;
-    this.files.set(file, { at, of });
-  }
-  fraction() {
-    let at = 0;
-    let of = 0;
-    this.files.forEach((file) => {
-      at += file.at;
-      of += file.of;
-    });
-    return of ? Math.min(1, at / of) : 0;
-  }
-};
-async function transformers() {
-  const mod = await import("@huggingface/transformers");
-  mod.env.allowLocalModels = false;
-  if (mod.env.backends?.onnx?.wasm) mod.env.backends.onnx.wasm.numThreads = 1;
-  return mod;
-}
+import {
+  Downloads,
+  bestDevice,
+  forgetDevice,
+  gpuAvailable,
+  resolveDevice,
+  transformers
+} from "./chunk-B5A4XJ7T.js";
 
 // src/embed.ts
 var EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
@@ -369,6 +326,130 @@ function limit(question) {
   if (PRESENT.test(q)) return "no-present";
   return void 0;
 }
+
+// src/worker/client.ts
+var Channel = class {
+  constructor(worker) {
+    this.worker = worker;
+    this.next = 1;
+    this.pending = /* @__PURE__ */ new Map();
+    worker.onmessage = (event) => {
+      const message = event.data;
+      const waiting = this.pending.get(message.id);
+      if (!waiting) return;
+      switch (message.kind) {
+        case "progress":
+          waiting.onProgress?.(message.fraction);
+          break;
+        case "token":
+          waiting.onToken?.(message.text);
+          break;
+        case "done":
+          this.pending.delete(message.id);
+          waiting.resolve(message);
+          break;
+        case "error":
+          this.pending.delete(message.id);
+          waiting.reject(new Error(message.message));
+          break;
+      }
+    };
+    worker.onerror = (event) => {
+      const error = new Error(
+        event.message || "The model worker stopped"
+      );
+      this.pending.forEach((waiting) => waiting.reject(error));
+      this.pending.clear();
+    };
+  }
+  send(request, handlers = {}) {
+    const id = this.next++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject, ...handlers });
+      this.worker.postMessage({ ...request, id });
+    });
+  }
+  /** Fire and forget, for anything with no answer worth waiting for. */
+  tell(request) {
+    this.worker.postMessage({ ...request, id: 0 });
+  }
+  close() {
+    this.pending.forEach(
+      (waiting) => waiting.reject(new Error("The model worker was closed"))
+    );
+    this.pending.clear();
+    this.worker.terminate();
+  }
+};
+var WorkerChat = class {
+  constructor(worker, model, preference = "auto", options) {
+    this.worker = worker;
+    this.model = model;
+    this.preference = preference;
+    this.options = options;
+    this.fellBackToCpu = false;
+    this.channel = new Channel(worker);
+  }
+  load(onProgress) {
+    if (!this.loading) {
+      this.loading = this.channel.send(
+        {
+          kind: "load-chat",
+          model: this.model,
+          device: this.preference,
+          options: this.options
+        },
+        { onProgress }
+      ).then((done) => {
+        this.device = done.device;
+        this.fellBackToCpu = !!done.fellBack;
+      });
+    }
+    return this.loading;
+  }
+  async reply(messages, onToken, signal) {
+    signal?.addEventListener("abort", () => this.channel.tell({ kind: "abort" }), {
+      once: true
+    });
+    const done = await this.channel.send({ kind: "generate", messages }, { onToken });
+    return done.text ?? "";
+  }
+  dispose() {
+    this.channel.close();
+    this.loading = void 0;
+    this.device = void 0;
+  }
+};
+var WorkerEmbedder = class {
+  constructor(worker, model) {
+    this.model = model;
+    this.channel = new Channel(worker);
+  }
+  load(onProgress) {
+    if (!this.loading) {
+      this.loading = this.channel.send({ kind: "load-embed", model: this.model }, { onProgress }).then((done) => {
+        this.device = done.device;
+      });
+    }
+    return this.loading;
+  }
+  async embed(texts) {
+    if (!texts.length) return [];
+    const done = await this.channel.send({ kind: "embed", texts });
+    return (done.vectors ?? []).map((row) => Float32Array.from(row));
+  }
+  dispose() {
+    this.channel.close();
+    this.loading = void 0;
+    this.device = void 0;
+  }
+};
+function workerChat(worker, model, preference = "auto", options) {
+  return new WorkerChat(worker, model, preference, options);
+}
+function workerEmbedder(worker, model) {
+  return new WorkerEmbedder(worker, model);
+}
 export {
   CHAT_MODEL,
   CHAT_MODELS,
@@ -385,6 +466,8 @@ export {
   resolveDevice,
   setChatEngine,
   setEmbedder,
-  similarity
+  similarity,
+  workerChat,
+  workerEmbedder
 };
 //# sourceMappingURL=index.js.map
