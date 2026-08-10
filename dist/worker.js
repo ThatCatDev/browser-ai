@@ -2,7 +2,7 @@ import {
   Downloads,
   resolveDevice,
   transformers
-} from "./chunk-B5A4XJ7T.js";
+} from "./chunk-SUA6R43P.js";
 
 // src/worker/worker.ts
 var reply = (message) => self.postMessage(message);
@@ -19,10 +19,10 @@ async function loadChat(request) {
     progress_callback: (event) => {
       if (event.status === "progress" && event.file) {
         downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-        reply({ id: request.id, kind: "progress", fraction: downloads.fraction() });
+        reply({ id: request.id, kind: "progress", ...downloads.state() });
       }
       if (event.status === "ready") {
-        reply({ id: request.id, kind: "progress", fraction: 1 });
+        reply({ id: request.id, kind: "progress", ...downloads.finished() });
       }
     }
   });
@@ -83,10 +83,10 @@ async function loadEmbed(request) {
       progress_callback: (event) => {
         if (event.status === "progress" && event.file) {
           downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-          reply({ id: request.id, kind: "progress", fraction: downloads.fraction() });
+          reply({ id: request.id, kind: "progress", ...downloads.state() });
         }
         if (event.status === "ready") {
-          reply({ id: request.id, kind: "progress", fraction: 1 });
+          reply({ id: request.id, kind: "progress", ...downloads.finished() });
         }
       }
     }

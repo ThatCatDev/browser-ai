@@ -33,14 +33,27 @@ var Downloads = class {
     if (!of) return;
     this.files.set(file, { at, of });
   }
-  fraction() {
-    let at = 0;
-    let of = 0;
+  /** Everything known so far, in bytes and as a fraction of itself. */
+  state() {
+    let loaded = 0;
+    let total = 0;
     this.files.forEach((file) => {
-      at += file.at;
-      of += file.of;
+      loaded += file.at;
+      total += file.of;
     });
-    return of ? Math.min(1, at / of) : 0;
+    return {
+      loaded,
+      total,
+      fraction: total ? Math.min(1, loaded / total) : 0
+    };
+  }
+  fraction() {
+    return this.state().fraction;
+  }
+  /** Everything, arrived. What "ready" means in bytes. */
+  finished() {
+    const { total } = this.state();
+    return { loaded: total, total, fraction: 1 };
   }
 };
 async function transformers() {
@@ -58,4 +71,4 @@ export {
   Downloads,
   transformers
 };
-//# sourceMappingURL=chunk-B5A4XJ7T.js.map
+//# sourceMappingURL=chunk-SUA6R43P.js.map

@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/ThatCatDev/browser-ai/compare/v1.1.1...v1.2.0) (2026-08-10)
+
+
+### Features
+
+* report a download in bytes, and say what a model really weighs ([#1](https://github.com/ThatCatDev/browser-ai/issues/1)) ([bb38a4a](https://github.com/ThatCatDev/browser-ai/commit/bb38a4afbad99a2cb43c568fa7455ac4a14ade52))
+
 ## [1.1.1](https://github.com/ThatCatDev/browser-ai/compare/v1.1.0...v1.1.1) (2026-08-10)
 
 

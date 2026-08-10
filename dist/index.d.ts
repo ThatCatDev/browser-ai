@@ -15,8 +15,32 @@
 type Device = "webgpu" | "wasm";
 /** What was asked for, which is not always what the machine can give. */
 type DevicePreference = "auto" | Device;
-/** Fraction of a download that has arrived, 0 to 1. */
-type Progress = (fraction: number) => void;
+/**
+ * How much of a download has arrived.
+ *
+ * The fraction on its own is not enough to draw a bar with, and the reason is
+ * worth stating: `total` is the bytes of the files *discovered so far*, and
+ * files are discovered in the order they are needed. A model is a handful of
+ * small JSON files and one enormous one, so for the first second the fraction
+ * is a fraction of a few hundred kilobytes — it climbs to nearly 1, and then
+ * collapses when the weights are finally announced. Only the bytes say whether
+ * 90% means ninety per cent of the model or ninety per cent of its tokenizer.
+ */
+interface Loading {
+    /** Bytes that have arrived, across every file seen so far. */
+    loaded: number;
+    /** Bytes known to be coming. Grows as files are discovered. */
+    total: number;
+    /** `loaded / total` — of what is known, which is not always the whole. */
+    fraction: number;
+}
+/**
+ * Told how a download is going, as often as the runtime says so.
+ *
+ * The fraction comes first because it is what most callers want, and what this
+ * was before the bytes were there to be had.
+ */
+type Progress = (fraction: number, detail: Loading) => void;
 declare function gpuAvailable(): Promise<boolean>;
 /** Forget the cached answer. For tests, and for anything that reloads a page. */
 declare function forgetDevice(): void;
@@ -90,6 +114,15 @@ interface ChatModel {
     label: string;
     /** Roughly what it costs to fetch, in the words somebody would use. */
     size: string;
+    /**
+     * The same figure in bytes, near enough to draw a bar against.
+     *
+     * Needed because the runtime only ever reports the files it has met, and the
+     * weights are announced last — without something to measure against, a bar
+     * reads 98% while the actual model has not started arriving. Approximate on
+     * purpose: it is a denominator until the real total is known, not a promise.
+     */
+    bytes: number;
     /** What it is like to talk to. No marketing. */
     note: string;
 }
@@ -366,11 +399,17 @@ type Request = {
     kind: "abort";
 };
 type Response = 
-/** A download, as a fraction. Sent many times against one request. */
+/**
+ * A download, as a fraction and in bytes. Sent many times against one
+ * request. The bytes travel too because the fraction alone cannot be drawn
+ * honestly — see `Loading`.
+ */
 {
     id: number;
     kind: "progress";
     fraction: number;
+    loaded: number;
+    total: number;
 }
 /** A piece of an answer, as it is generated. */
  | {
@@ -392,4 +431,4 @@ type Response =
     message: string;
 };
 
-export { CHAT_MODEL, CHAT_MODELS, type ChatEngine, type ChatModel, type ChatOptions, type Device, type DevicePreference, type Document, EMBEDDING_MODEL, type Embedder, type GroundOptions, type IndexOptions, type Limit, type Match, type Message, type Progress, VectorIndex, type VectorStore, type Request as WorkerRequest, type Response as WorkerResponse, bestDevice, chatEngine, contextual, embedder, forgetDevice, gpuAvailable, ground, limit, resolveDevice, setChatEngine, setEmbedder, similarity, workerChat, workerEmbedder };
+export { CHAT_MODEL, CHAT_MODELS, type ChatEngine, type ChatModel, type ChatOptions, type Device, type DevicePreference, type Document, EMBEDDING_MODEL, type Embedder, type GroundOptions, type IndexOptions, type Limit, type Loading, type Match, type Message, type Progress, VectorIndex, type VectorStore, type Request as WorkerRequest, type Response as WorkerResponse, bestDevice, chatEngine, contextual, embedder, forgetDevice, gpuAvailable, ground, limit, resolveDevice, setChatEngine, setEmbedder, similarity, workerChat, workerEmbedder };

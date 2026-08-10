@@ -5,7 +5,7 @@ import {
   gpuAvailable,
   resolveDevice,
   transformers
-} from "./chunk-B5A4XJ7T.js";
+} from "./chunk-SUA6R43P.js";
 
 // src/embed.ts
 var EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
@@ -28,9 +28,10 @@ var TransformersEmbedder = class {
         if (!onProgress) return;
         if (event.status === "progress" && event.file) {
           downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-          onProgress(downloads.fraction());
+          const state = downloads.state();
+          onProgress(state.fraction, state);
         }
-        if (event.status === "ready") onProgress(1);
+        if (event.status === "ready") onProgress(1, downloads.finished());
       }
     });
     this.device = device;
@@ -68,19 +69,22 @@ var CHAT_MODELS = [
   {
     id: "HuggingFaceTB/SmolLM2-135M-Instruct",
     label: "SmolLM2 135M",
-    size: "~100MB",
+    size: "~185MB",
+    bytes: 185e6,
     note: "Fastest to arrive. Writes fluently and wanders off the question."
   },
   {
     id: "onnx-community/Qwen2.5-0.5B-Instruct",
     label: "Qwen2.5 0.5B",
-    size: "~350MB",
+    size: "~800MB",
+    bytes: 8e8,
     note: "The default. Answers what was asked, briefly."
   },
   {
     id: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
     label: "Llama 3.2 1B",
-    size: "~900MB",
+    size: "~1.7GB",
+    bytes: 17e8,
     note: "Conversational. Worth it on a GPU, painful without one."
   }
 ];
@@ -123,9 +127,10 @@ var TransformersChat = class {
         if (!onProgress) return;
         if (event.status === "progress" && event.file) {
           downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-          onProgress(downloads.fraction());
+          const state = downloads.state();
+          onProgress(state.fraction, state);
         }
-        if (event.status === "ready") onProgress(1);
+        if (event.status === "ready") onProgress(1, downloads.finished());
       }
     });
     let pipe;
@@ -350,7 +355,11 @@ var Channel = class {
       if (!waiting) return;
       switch (message.kind) {
         case "progress":
-          waiting.onProgress?.(message.fraction);
+          waiting.onProgress?.(message.fraction, {
+            loaded: message.loaded,
+            total: message.total,
+            fraction: message.fraction
+          });
           break;
         case "token":
           waiting.onToken?.(message.text);

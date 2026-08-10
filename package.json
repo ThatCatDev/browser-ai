@@ -1,6 +1,6 @@
 {
   "name": "@thatcatdev/browser-ai",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Small language models and retrieval, running in the browser on the visitor's own machine.",
   "type": "module",
   "sideEffects": false,
