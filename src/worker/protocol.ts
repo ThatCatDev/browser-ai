@@ -17,8 +17,12 @@ export type Request =
   | { id: number; kind: "abort" };
 
 export type Response =
-  /** A download, as a fraction. Sent many times against one request. */
-  | { id: number; kind: "progress"; fraction: number }
+  /**
+   * A download, as a fraction and in bytes. Sent many times against one
+   * request. The bytes travel too because the fraction alone cannot be drawn
+   * honestly — see `Loading`.
+   */
+  | { id: number; kind: "progress"; fraction: number; loaded: number; total: number }
   /** A piece of an answer, as it is generated. */
   | { id: number; kind: "token"; text: string }
   /** The request is finished, with whatever it produced. */

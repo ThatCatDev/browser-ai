@@ -58,9 +58,10 @@ class TransformersEmbedder implements Embedder {
         if (!onProgress) return;
         if (event.status === "progress" && event.file) {
           downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-          onProgress(downloads.fraction());
+          const state = downloads.state();
+          onProgress(state.fraction, state);
         }
-        if (event.status === "ready") onProgress(1);
+        if (event.status === "ready") onProgress(1, downloads.finished());
       }
     });
 

@@ -41,10 +41,10 @@ async function loadChat(request: Extract<Request, { kind: "load-chat" }>) {
       }) => {
         if (event.status === "progress" && event.file) {
           downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-          reply({ id: request.id, kind: "progress", fraction: downloads.fraction() });
+          reply({ id: request.id, kind: "progress", ...downloads.state() });
         }
         if (event.status === "ready") {
-          reply({ id: request.id, kind: "progress", fraction: 1 });
+          reply({ id: request.id, kind: "progress", ...downloads.finished() });
         }
       }
     });
@@ -132,10 +132,10 @@ async function loadEmbed(request: Extract<Request, { kind: "load-embed" }>) {
       }) => {
         if (event.status === "progress" && event.file) {
           downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-          reply({ id: request.id, kind: "progress", fraction: downloads.fraction() });
+          reply({ id: request.id, kind: "progress", ...downloads.state() });
         }
         if (event.status === "ready") {
-          reply({ id: request.id, kind: "progress", fraction: 1 });
+          reply({ id: request.id, kind: "progress", ...downloads.finished() });
         }
       }
     }
