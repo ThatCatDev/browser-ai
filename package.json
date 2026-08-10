@@ -1,6 +1,6 @@
 {
   "name": "@thatcatdev/browser-ai",
-  "version": "0.0.0-development",
+  "version": "1.0.0",
   "description": "Small language models and retrieval, running in the browser on the visitor's own machine.",
   "type": "module",
   "sideEffects": false,
@@ -9,9 +9,15 @@
     "type": "git",
     "url": "https://github.com/ThatCatDev/browser-ai.git"
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,5 +38,13 @@
     "typescript": "^5.9.0",
     "vitest": "^4.1.10"
   },
-  "keywords": ["webgpu", "wasm", "transformers", "embeddings", "rag", "llm", "browser"]
+  "keywords": [
+    "webgpu",
+    "wasm",
+    "transformers",
+    "embeddings",
+    "rag",
+    "llm",
+    "browser"
+  ]
 }
