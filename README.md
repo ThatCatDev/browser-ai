@@ -115,3 +115,8 @@ patch, `feat:` a minor, `!` or `BREAKING CHANGE:` a major.
 ## Licence
 
 MIT
+
+> **Note on installing from git**: there is no `prepare` script on purpose.
+> `dist/` is committed at every release, so a consumer never has to install this
+> package's build tooling — `bun add github:ThatCatDev/browser-ai#v1.0.1` fetches
+> a tag that already contains what it needs.
