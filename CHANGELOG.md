@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/ThatCatDev/browser-ai/compare/v1.1.0...v1.1.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* let two engines share one worker ([743ca33](https://github.com/ThatCatDev/browser-ai/commit/743ca33c2f2194bbe742ce8cd79d192626b41e03))
+
 # [1.1.0](https://github.com/ThatCatDev/browser-ai/compare/v1.0.1...v1.1.0) (2026-08-10)
 
 
