@@ -31,8 +31,30 @@ interface Pending {
   onToken?: (text: string) => void;
 }
 
+/**
+ * One channel per worker, however many engines are talking through it.
+ *
+ * A worker has a single `onmessage` slot, so two clients sharing a thread meant
+ * the second silently took the first's replies: the chat engine kept answering
+ * and the embedder waited forever for messages that were being delivered
+ * somewhere else. Sharing the channel — one listener, one id counter — is what
+ * makes "one worker serves both" true rather than merely intended.
+ */
+const channels = new WeakMap<Worker, Channel>();
+
+function channelFor(worker: Worker): Channel {
+  let channel = channels.get(worker);
+  if (!channel) {
+    channel = new Channel(worker);
+    channels.set(worker, channel);
+  }
+  channel.retain();
+  return channel;
+}
+
 class Channel {
   private next = 1;
+  private users = 0;
   private readonly pending = new Map<number, Pending>();
 
   constructor(private readonly worker: Worker) {
@@ -74,6 +96,10 @@ class Channel {
     };
   }
 
+  retain(): void {
+    this.users++;
+  }
+
   send(
     request: Ask<Request>,
     handlers: Omit<Pending, "resolve" | "reject"> = {}
@@ -90,11 +116,21 @@ class Channel {
     this.worker.postMessage({ ...request, id: 0 } as Request);
   }
 
+  /**
+   * Let go of it, and stop the thread when nobody is left.
+   *
+   * A chat window closing must not take the embedder's model down with it: the
+   * launcher is still searching, and the weights are the expensive part.
+   */
   close(): void {
+    this.users = Math.max(0, this.users - 1);
+    if (this.users > 0) return;
+
     this.pending.forEach((waiting) =>
       waiting.reject(new Error("The model worker was closed"))
     );
     this.pending.clear();
+    channels.delete(this.worker);
     this.worker.terminate();
   }
 }
@@ -111,7 +147,7 @@ class WorkerChat implements ChatEngine {
     private readonly preference: DevicePreference = "auto",
     private readonly options?: ChatOptions
   ) {
-    this.channel = new Channel(worker);
+    this.channel = channelFor(worker);
   }
 
   load(onProgress?: Progress): Promise<void> {
@@ -164,7 +200,7 @@ class WorkerEmbedder implements Embedder {
     worker: Worker,
     private readonly model?: string
   ) {
-    this.channel = new Channel(worker);
+    this.channel = channelFor(worker);
   }
 
   load(onProgress?: Progress): Promise<void> {

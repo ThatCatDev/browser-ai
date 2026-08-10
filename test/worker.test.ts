@@ -144,3 +144,45 @@ describe('the worker embedder client', () => {
     expect(sent).toHaveLength(1)
   })
 })
+
+/*
+ * Regression: a worker has one `onmessage` slot, so two clients sharing a
+ * thread meant the second silently took the first's replies. In the desktop
+ * this came out of, the chat model answered normally while the embedder waited
+ * forever for messages that were being delivered somewhere else — so the notes
+ * never built and every answer came back ungrounded.
+ */
+describe('two engines, one thread', () => {
+  it('delivers to both of them', async () => {
+    const { worker, sent, reply } = fakeWorker()
+    const chat = workerChat(worker, 'some/model')
+    const model = workerEmbedder(worker)
+
+    const loadingChat = chat.load()
+    const loadingModel = model.load()
+
+    // Two requests, two different ids, one listener.
+    expect(sent.map((m) => m.kind)).toEqual(['load-chat', 'load-embed'])
+    expect(new Set(sent.map((m) => m.id)).size).toBe(2)
+
+    reply({ id: sent[1].id, kind: 'done', device: 'wasm' })
+    reply({ id: sent[0].id, kind: 'done', device: 'webgpu' })
+
+    await Promise.all([loadingChat, loadingModel])
+    expect(chat.device).toBe('webgpu')
+    expect(model.device).toBe('wasm')
+  })
+
+  // A chat window closing must not take the launcher's embedder down with it.
+  it('keeps the thread while anything is still using it', async () => {
+    const { worker } = fakeWorker()
+    const chat = workerChat(worker, 'some/model')
+    const model = workerEmbedder(worker)
+
+    chat.dispose()
+    expect((worker as unknown as { terminate: unknown }).terminate).not.toHaveBeenCalled()
+
+    model.dispose()
+    expect((worker as unknown as { terminate: unknown }).terminate).toHaveBeenCalled()
+  })
+})

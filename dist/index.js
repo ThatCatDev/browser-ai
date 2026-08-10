@@ -328,10 +328,21 @@ function limit(question) {
 }
 
 // src/worker/client.ts
+var channels = /* @__PURE__ */ new WeakMap();
+function channelFor(worker) {
+  let channel = channels.get(worker);
+  if (!channel) {
+    channel = new Channel(worker);
+    channels.set(worker, channel);
+  }
+  channel.retain();
+  return channel;
+}
 var Channel = class {
   constructor(worker) {
     this.worker = worker;
     this.next = 1;
+    this.users = 0;
     this.pending = /* @__PURE__ */ new Map();
     worker.onmessage = (event) => {
       const message = event.data;
@@ -362,6 +373,9 @@ var Channel = class {
       this.pending.clear();
     };
   }
+  retain() {
+    this.users++;
+  }
   send(request, handlers = {}) {
     const id = this.next++;
     return new Promise((resolve, reject) => {
@@ -373,11 +387,20 @@ var Channel = class {
   tell(request) {
     this.worker.postMessage({ ...request, id: 0 });
   }
+  /**
+   * Let go of it, and stop the thread when nobody is left.
+   *
+   * A chat window closing must not take the embedder's model down with it: the
+   * launcher is still searching, and the weights are the expensive part.
+   */
   close() {
+    this.users = Math.max(0, this.users - 1);
+    if (this.users > 0) return;
     this.pending.forEach(
       (waiting) => waiting.reject(new Error("The model worker was closed"))
     );
     this.pending.clear();
+    channels.delete(this.worker);
     this.worker.terminate();
   }
 };
@@ -388,7 +411,7 @@ var WorkerChat = class {
     this.preference = preference;
     this.options = options;
     this.fellBackToCpu = false;
-    this.channel = new Channel(worker);
+    this.channel = channelFor(worker);
   }
   load(onProgress) {
     if (!this.loading) {
@@ -423,7 +446,7 @@ var WorkerChat = class {
 var WorkerEmbedder = class {
   constructor(worker, model) {
     this.model = model;
-    this.channel = new Channel(worker);
+    this.channel = channelFor(worker);
   }
   load(onProgress) {
     if (!this.loading) {
