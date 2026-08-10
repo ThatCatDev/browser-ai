@@ -35,13 +35,31 @@ describe('the worker chat client', () => {
     const loading = engine.load((fraction) => seen.push(fraction))
 
     expect(sent[0]).toMatchObject({ kind: 'load-chat', model: 'some/model' })
-    reply({ id: sent[0].id, kind: 'progress', fraction: 0.5 })
+    reply({ id: sent[0].id, kind: 'progress', fraction: 0.5, loaded: 50, total: 100 })
     reply({ id: sent[0].id, kind: 'done', device: 'webgpu', fellBack: false })
 
     await loading
     expect(seen).toEqual([0.5])
     expect(engine.device).toBe('webgpu')
     expect(engine.fellBackToCpu).toBe(false)
+  })
+
+  /*
+   * The bytes have to survive the thread boundary too: on the far side of a
+   * `postMessage` a fraction of the files met so far is just as undrawable.
+   */
+  it('carries the bytes across, not only the fraction', async () => {
+    const { worker, sent, reply } = fakeWorker()
+    const engine = workerChat(worker, 'some/model', 'auto')
+
+    const seen: Array<{ loaded: number; total: number }> = []
+    const loading = engine.load((_fraction, detail) => seen.push(detail))
+
+    reply({ id: sent[0].id, kind: 'progress', fraction: 0.25, loaded: 25, total: 100 })
+    reply({ id: sent[0].id, kind: 'done', device: 'wasm', fellBack: false })
+
+    await loading
+    expect(seen).toEqual([{ loaded: 25, total: 100, fraction: 0.25 }])
   })
 
   it('passes on a fall back to the CPU, so the app can say so', async () => {

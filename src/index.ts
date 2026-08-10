@@ -21,6 +21,7 @@ export {
   resolveDevice,
   type Device,
   type DevicePreference,
+  type Loading,
   type Progress
 } from "./device";
 

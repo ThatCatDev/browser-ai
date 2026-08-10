@@ -18,8 +18,33 @@ export type Device = "webgpu" | "wasm";
 /** What was asked for, which is not always what the machine can give. */
 export type DevicePreference = "auto" | Device;
 
-/** Fraction of a download that has arrived, 0 to 1. */
-export type Progress = (fraction: number) => void;
+/**
+ * How much of a download has arrived.
+ *
+ * The fraction on its own is not enough to draw a bar with, and the reason is
+ * worth stating: `total` is the bytes of the files *discovered so far*, and
+ * files are discovered in the order they are needed. A model is a handful of
+ * small JSON files and one enormous one, so for the first second the fraction
+ * is a fraction of a few hundred kilobytes — it climbs to nearly 1, and then
+ * collapses when the weights are finally announced. Only the bytes say whether
+ * 90% means ninety per cent of the model or ninety per cent of its tokenizer.
+ */
+export interface Loading {
+  /** Bytes that have arrived, across every file seen so far. */
+  loaded: number;
+  /** Bytes known to be coming. Grows as files are discovered. */
+  total: number;
+  /** `loaded / total` — of what is known, which is not always the whole. */
+  fraction: number;
+}
+
+/**
+ * Told how a download is going, as often as the runtime says so.
+ *
+ * The fraction comes first because it is what most callers want, and what this
+ * was before the bytes were there to be had.
+ */
+export type Progress = (fraction: number, detail: Loading) => void;
 
 /**
  * Whether this browser can *actually* run on the GPU.
@@ -96,14 +121,29 @@ export class Downloads {
     this.files.set(file, { at, of });
   }
 
-  fraction(): number {
-    let at = 0;
-    let of = 0;
+  /** Everything known so far, in bytes and as a fraction of itself. */
+  state(): Loading {
+    let loaded = 0;
+    let total = 0;
     this.files.forEach((file) => {
-      at += file.at;
-      of += file.of;
+      loaded += file.at;
+      total += file.of;
     });
-    return of ? Math.min(1, at / of) : 0;
+    return {
+      loaded,
+      total,
+      fraction: total ? Math.min(1, loaded / total) : 0
+    };
+  }
+
+  fraction(): number {
+    return this.state().fraction;
+  }
+
+  /** Everything, arrived. What "ready" means in bytes. */
+  finished(): Loading {
+    const { total } = this.state();
+    return { loaded: total, total, fraction: 1 };
   }
 }
 

@@ -30,6 +30,15 @@ export interface ChatModel {
   label: string;
   /** Roughly what it costs to fetch, in the words somebody would use. */
   size: string;
+  /**
+   * The same figure in bytes, near enough to draw a bar against.
+   *
+   * Needed because the runtime only ever reports the files it has met, and the
+   * weights are announced last — without something to measure against, a bar
+   * reads 98% while the actual model has not started arriving. Approximate on
+   * purpose: it is a denominator until the real total is known, not a promise.
+   */
+  bytes: number;
   /** What it is like to talk to. No marketing. */
   note: string;
 }
@@ -41,23 +50,38 @@ export interface ChatModel {
  * fit in the WASM address space at all, and would mean offering a window that
  * cannot work to every visitor without WebGPU.
  */
+/*
+ * The sizes are what these actually weigh at `q4` on the hub, measured rather
+ * than estimated from the parameter count — which is what they were, and which
+ * was wrong by a factor of two in both directions. Four-bit quantisation
+ * applies to the weight matrices and not to the embedding table, so a model
+ * with a 150,000-token vocabulary carries a great deal of full-precision
+ * baggage: Qwen at half a billion parameters is a larger download than
+ * SmolLM2's file size would lead anybody to guess.
+ *
+ * They matter more than a label. This is the number somebody decides on, and
+ * it is the denominator a progress bar is drawn against.
+ */
 export const CHAT_MODELS: ChatModel[] = [
   {
     id: "HuggingFaceTB/SmolLM2-135M-Instruct",
     label: "SmolLM2 135M",
-    size: "~100MB",
+    size: "~185MB",
+    bytes: 185_000_000,
     note: "Fastest to arrive. Writes fluently and wanders off the question."
   },
   {
     id: "onnx-community/Qwen2.5-0.5B-Instruct",
     label: "Qwen2.5 0.5B",
-    size: "~350MB",
+    size: "~800MB",
+    bytes: 800_000_000,
     note: "The default. Answers what was asked, briefly."
   },
   {
     id: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
     label: "Llama 3.2 1B",
-    size: "~900MB",
+    size: "~1.7GB",
+    bytes: 1_700_000_000,
     note: "Conversational. Worth it on a GPU, painful without one."
   }
 ];
@@ -157,9 +181,10 @@ class TransformersChat implements ChatEngine {
           if (!onProgress) return;
           if (event.status === "progress" && event.file) {
             downloads.record(event.file, event.loaded ?? 0, event.total ?? 0);
-            onProgress(downloads.fraction());
+            const state = downloads.state();
+            onProgress(state.fraction, state);
           }
-          if (event.status === "ready") onProgress(1);
+          if (event.status === "ready") onProgress(1, downloads.finished());
         }
       });
 

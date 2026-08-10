@@ -73,4 +73,31 @@ describe('Downloads', () => {
   it('is zero before anything with a known size has arrived', () => {
     expect(new Downloads().fraction()).toBe(0)
   })
+
+  /*
+   * The bytes are the part a bar can be drawn from. A fraction of the files
+   * met so far says 90% while the weights have not been announced; the bytes
+   * say 3MB, which anything holding the model's real size can act on.
+   */
+  it('gives the bytes, not only the ratio between them', () => {
+    const downloads = new Downloads()
+    downloads.record('tokenizer.json', 2_000_000, 2_000_000)
+    expect(downloads.state()).toEqual({
+      loaded: 2_000_000,
+      total: 2_000_000,
+      fraction: 1,
+    })
+
+    downloads.record('model.onnx', 0, 800_000_000)
+    const { loaded, total, fraction } = downloads.state()
+    expect(loaded).toBe(2_000_000)
+    expect(total).toBe(802_000_000)
+    expect(fraction).toBeCloseTo(0.0025)
+  })
+
+  it('calls everything it knows about arrived, when it is', () => {
+    const downloads = new Downloads()
+    downloads.record('model.onnx', 10, 100)
+    expect(downloads.finished()).toEqual({ loaded: 100, total: 100, fraction: 1 })
+  })
 })

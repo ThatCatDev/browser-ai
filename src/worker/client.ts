@@ -65,7 +65,11 @@ class Channel {
 
       switch (message.kind) {
         case "progress":
-          waiting.onProgress?.(message.fraction);
+          waiting.onProgress?.(message.fraction, {
+            loaded: message.loaded,
+            total: message.total,
+            fraction: message.fraction
+          });
           break;
         case "token":
           waiting.onToken?.(message.text);

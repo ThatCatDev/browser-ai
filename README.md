@@ -95,13 +95,20 @@ question does not pay for it again.
 
 ```ts
 const engine = chatEngine(CHAT_MODEL, "auto");
-await engine.load((fraction) => show(fraction));
+await engine.load((fraction, { loaded, total }) => show(fraction, loaded, total));
 await engine.reply(messages, (token) => append(token), signal);
 ```
 
-Three models are described in `CHAT_MODELS`, with sizes, because the size is
-what a visitor is really choosing. The default is Qwen2.5 0.5B — the first rung
-that answers the question it was asked rather than writing a scene around it.
+Three models are described in `CHAT_MODELS`, with sizes in words and in bytes,
+because the size is what a visitor is really choosing. The default is Qwen2.5
+0.5B — the first rung that answers the question it was asked rather than writing
+a scene around it.
+
+**Draw a bar from the bytes, not from the fraction.** The runtime only counts
+the files it has met, and it meets the small ones first: for a second or two the
+fraction is a fraction of a tokenizer, so it climbs to nearly 1 and then
+collapses when the weights are finally announced. `loaded` measured against the
+chosen model's `bytes` only ever goes one way.
 
 ## Grounding, and knowing when not to answer
 
