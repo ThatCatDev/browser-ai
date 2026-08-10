@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/ThatCatDev/browser-ai/compare/v1.0.1...v1.1.0) (2026-08-10)
+
+
+### Features
+
+* run the models in a worker ([3a3d7f4](https://github.com/ThatCatDev/browser-ai/commit/3a3d7f430125d2d67e99cd76d3325252199c9732))
+
 ## [1.0.1](https://github.com/ThatCatDev/browser-ai/compare/v1.0.0...v1.0.1) (2026-08-10)
 
 
